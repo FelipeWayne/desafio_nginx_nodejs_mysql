@@ -1,0 +1,60 @@
+version: '3'
+
+services: 
+# Inicializa o container do node.
+    app:
+        build:
+            context: ./app
+            dockerfile: Dockerfile
+        container_name: app
+        entrypoint: dockerize -wait tcp://db:3306 -timeout 60s docker-entrypoint.sh
+        command: npm start
+        networks: 
+            - node-network
+        volumes: 
+            - ./app:/usr/app
+            - /usr/app/node_modules
+        tty: true
+        ports: 
+            - "3000:3000"
+        depends_on: 
+            - db
+
+# Inicializa o container do nginx.
+    nginx:
+        build: 
+            context: ./nginx
+            dockerfile: Dockerfile
+        container_name: nginx
+        networks: 
+            - node-network
+        ports:
+            - "8080:80"      
+        depends_on: 
+            - app
+            - db
+
+# Inicializa o container do mysql.
+    db:
+        build: 
+            context: ./mysql
+            dockerfile: Dockerfile
+        command: --innodb-use-native-aio=0
+        container_name: db
+        restart: always
+        tty: true
+        ports:
+            - "3306:3306"
+        volumes: 
+            - ./mysql/data:/var/lib/mysql
+        environment: 
+            - MYSQL_DATABASE=node_db
+            - MYSQL_USER=root
+            - MYSQL_ROOT_PASSWORD=root
+        networks: 
+            - node-network
+
+# Cria a rede para os containers.
+networks: 
+    node-network:
+        driver: bridge
